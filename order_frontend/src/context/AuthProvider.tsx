@@ -1,31 +1,15 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { setAuthToken, setSessionExpiredHandler } from '../api/client';
 import { signIn, signOut, signUp } from '../api/auth.api';
 import { fetchUsers } from '../api/admin.api';
 import type { SignUpRequest } from '../types';
-
-interface Session {
-    email: string;
-    name: string;
-    isAdmin: boolean;
-}
-
-interface AuthContextValue {
-    session: Session | null;
-    booting: boolean;
-    login: (email: string, password: string) => Promise<void>;
-    register: (payload: SignUpRequest) => Promise<void>;
-    logout: () => Promise<void>;
-}
-
-const STORAGE_KEY = 'ordertrack.session';
-
-const AuthContext = createContext<AuthContextValue | null>(null);
+import { AUTH_STORAGE_KEY, AuthContext } from './auth-context';
+import type { Session } from './auth-context';
 
 const readStoredSession = (): Session | null => {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = localStorage.getItem(AUTH_STORAGE_KEY);
         return raw ? (JSON.parse(raw) as Session) : null;
     } catch {
         return null;
@@ -34,28 +18,26 @@ const readStoredSession = (): Session | null => {
 
 /*
 Only the email, name and the admin flag are kept in localStorage, never the token.
-The actual proof of login is the httpOnly cookie the backend sets, so if that cookie
-is gone the first api call fails with 401 and the interceptor clears this.
+The real proof of login is the httpOnly cookie the backend sets, so if that cookie is
+gone the first api call comes back 401 and the interceptor clears this session.
  */
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [session, setSession] = useState<Session | null>(readStoredSession);
-    const [booting, setBooting] = useState(true);
 
     const clearSession = useCallback(() => {
         setAuthToken(null);
-        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
         setSession(null);
     }, []);
 
     useEffect(() => {
         setSessionExpiredHandler(clearSession);
-        setBooting(false);
         return () => setSessionExpiredHandler(null);
     }, [clearSession]);
 
     /*
-    There is no /me endpoint yet, so the only way to know whether this user is an admin
-    is to ask for one user and see if the call is allowed.
+    There is no /me endpoint yet, so the only way to find out whether this user is an
+    admin is to ask for one user and see whether the call is allowed.
      */
     const checkAdmin = useCallback(async (): Promise<boolean> => {
         try {
@@ -67,7 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     const saveSession = useCallback((next: Session) => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
         setSession(next);
     }, []);
 
@@ -103,16 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         clearSession();
     }, [clearSession]);
 
-    const value = useMemo(
-        () => ({ session, booting, login, register, logout }),
-        [session, booting, login, register, logout],
-    );
+    const value = useMemo(() => ({ session, login, register, logout }), [session, login, register, logout]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
-
-export const useAuth = (): AuthContextValue => {
-    const context = useContext(AuthContext);
-    if (!context) throw new Error('useAuth must be used inside AuthProvider');
-    return context;
 };
