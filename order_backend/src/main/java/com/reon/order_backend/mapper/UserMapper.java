@@ -37,7 +37,7 @@ public class UserMapper {
                 .roles(user.getRoles())
                 .createdOn(user.getCreatedOn())
                 .updatedOn(user.getUpdatedOn())
-                .orderList(user.getOrderList())
+                .totalOrders(user.getOrderList() == null ? 0 : user.getOrderList().size())
                 .build();
     }
 }

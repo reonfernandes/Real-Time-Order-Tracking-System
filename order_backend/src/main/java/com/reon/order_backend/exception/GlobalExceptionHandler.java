@@ -23,35 +23,39 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
     }
 
+    // email is already taken, so it is a conflict and not a bad request
     @ExceptionHandler(EmailAlreadyExistsException.class)
     public ResponseEntity<Map<String, String>> handleEmailException(EmailAlreadyExistsException exception) {
         log.info("email exception :: {}", exception.getMessage());
-        Map<String, String> error = new HashMap<>();
-        error.put("email", "User with this email already exists.");
-        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+        return buildError("email", exception.getMessage(), HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<Map<String, String>> handleUserException(UserNotFoundException exception) {
         log.info("user exception :: {}", exception.getMessage());
-        Map<String, String> error = new HashMap<>();
-        error.put("user", "User not found with provided details.");
-        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+        return buildError("user", exception.getMessage(), HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(OrderNotFoundException.class)
     public ResponseEntity<Map<String, String>> handleOrderException(OrderNotFoundException exception) {
         log.info("order exception :: {}", exception.getMessage());
-        Map<String, String> error = new HashMap<>();
-        error.put("order", "Order not found");
-        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+        return buildError("order", exception.getMessage(), HttpStatus.NOT_FOUND);
     }
 
+    // order is there but its current status does not allow the change
     @ExceptionHandler(OrderNotCancellableException.class)
     public ResponseEntity<Map<String, String>> handleOrderNotCancellableException(OrderNotCancellableException exception) {
         log.info("order cancel exception :: {}", exception.getMessage());
+        return buildError("order", exception.getMessage(), HttpStatus.CONFLICT);
+    }
+
+    /*
+    Earlier every handler was returning a fixed line, so the caller never came to know
+    what actually went wrong. Now the real message from the exception is sent back.
+     */
+    private ResponseEntity<Map<String, String>> buildError(String field, String message, HttpStatus status) {
         Map<String, String> error = new HashMap<>();
-        error.put("order", "Order not cancellable");
-        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+        error.put(field, message);
+        return new ResponseEntity<>(error, status);
     }
 }

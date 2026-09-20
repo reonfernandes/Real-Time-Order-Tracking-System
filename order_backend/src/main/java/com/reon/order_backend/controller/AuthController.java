@@ -83,7 +83,8 @@ public class AuthController {
         log.info("Auth Controller :: Saving the jwt token to cookie.");
         Cookie cookie = new Cookie("JWT", jwtResponse.getToken());
         cookie.setPath("/");
-        cookie.setHttpOnly(false);          // true during production
+        // httpOnly keeps the token away from javascript, so XSS cannot read it
+        cookie.setHttpOnly(true);
         cookie.setSecure(true);
         cookie.setMaxAge((int) (tokenExpirationTime / 1000));
         cookie.setAttribute("SameSite", "Strict");
@@ -111,7 +112,7 @@ public class AuthController {
         log.info("Auth Controller :: Incoming request for logging out.");
 
         Cookie cookie = new Cookie("JWT", null);
-        cookie.setHttpOnly(false);
+        cookie.setHttpOnly(true);
         cookie.setSecure(true);
         cookie.setPath("/");
         cookie.setMaxAge(0);
