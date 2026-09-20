@@ -23,12 +23,6 @@ public class EmailServiceImpl implements EmailService {
         log.info("Sending order success email to: {}",to);
 
         SimpleMailMessage message = new SimpleMailMessage();
-
-//        // for test purpose only.
-//        if (to.equals("keith@outlook.com")) {
-//            throw new RuntimeException("Invalid User.");
-//        }
-
         message.setFrom(emailSender);
         message.setTo(to);
         message.setSubject(subject);
