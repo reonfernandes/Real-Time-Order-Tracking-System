@@ -56,13 +56,13 @@ public class UserServiceImpl implements UserService {
         user.setAccountEnabled(true);
 
         User savedUser = userRepository.save(user);
-        log.info("User Service :: User saved: {}", request);
+        log.info("User Service :: User saved: {}", savedUser.getEmail());
         return userMapper.responseToUser(savedUser);
     }
 
     @Override
     public JwtResponse authenticateUser(UserLogin login) {
-        log.info("User Service :: Authenticating User: {}", login);
+        log.info("User Service :: Authenticating User: {}", login.getEmail());
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(login.getEmail(), login.getPassword())

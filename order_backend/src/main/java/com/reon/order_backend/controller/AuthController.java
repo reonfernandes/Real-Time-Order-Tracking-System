@@ -77,7 +77,7 @@ public class AuthController {
     })
     public ResponseEntity<JwtResponse> userAuthentication(@Valid @RequestBody UserLogin login,
                                                           HttpServletResponse response) {
-        log.info("Auth Controller :: Incoming login request: {}", login);
+        log.info("Auth Controller :: Incoming login request: {}", login.getEmail());
         JwtResponse jwtResponse = userService.authenticateUser(login);
 
         log.info("Auth Controller :: Saving the jwt token to cookie.");
