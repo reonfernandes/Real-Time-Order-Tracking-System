@@ -2,14 +2,21 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { AuthProvider } from './context/AuthProvider';
 import { ToastProvider } from './context/ToastProvider';
 import { AppLayout } from './components/layout/AppLayout';
-import { ProtectedRoute, PublicOnlyRoute } from './components/routes/ProtectedRoute';
+import { AdminRoute, ProtectedRoute, PublicOnlyRoute } from './components/routes/ProtectedRoute';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { OrdersPage } from './pages/orders/OrdersPage';
 import { NewOrderPage } from './pages/orders/NewOrderPage';
 import { OrderDetailPage } from './pages/orders/OrderDetailPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 
+/*
+Both guards are pathless routes, so they add nothing to the url and only decide who is
+allowed through. The catch all sits inside the protected layout on purpose: a logged in
+user gets a proper 404 with the app chrome around it, and a logged out one is sent to
+login with the url they asked for kept in state.
+ */
 const App = () => (
     <BrowserRouter>
         <ToastProvider>
@@ -22,14 +29,18 @@ const App = () => (
 
                     <Route element={<ProtectedRoute />}>
                         <Route element={<AppLayout />}>
-                            <Route path="/orders" element={<OrdersPage />} />
-                            <Route path="/orders/new" element={<NewOrderPage />} />
-                            <Route path="/orders/:orderId" element={<OrderDetailPage />} />
-                            <Route path="/users" element={<AdminUsersPage />} />
+                            <Route index element={<Navigate to="/orders" replace />} />
+                            <Route path="orders" element={<OrdersPage />} />
+                            <Route path="orders/new" element={<NewOrderPage />} />
+                            <Route path="orders/:orderId" element={<OrderDetailPage />} />
+
+                            <Route element={<AdminRoute />}>
+                                <Route path="users" element={<AdminUsersPage />} />
+                            </Route>
+
+                            <Route path="*" element={<NotFoundPage />} />
                         </Route>
                     </Route>
-
-                    <Route path="*" element={<Navigate to="/orders" replace />} />
                 </Routes>
             </AuthProvider>
         </ToastProvider>

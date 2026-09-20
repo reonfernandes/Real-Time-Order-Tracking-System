@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { errorMessage } from '../../api/client';
 import { useAuth } from '../../context/useAuth';
+import { redirectTarget } from '../../lib/redirect';
 import { Button } from '../../components/ui/Button';
 import { Field } from '../../components/ui/Field';
 import { AuthShell } from './AuthShell';
@@ -24,8 +25,8 @@ export const LoginPage = () => {
 
         try {
             await login(email.trim(), password);
-            const from = (location.state as { from?: string } | null)?.from;
-            navigate(from ?? '/orders', { replace: true });
+            // back to whatever they were trying to open, /orders when they came here directly
+            navigate(redirectTarget((location.state as { from?: string } | null)?.from), { replace: true });
         } catch (err) {
             setError(errorMessage(err, 'Email or password is not correct.'));
         } finally {
