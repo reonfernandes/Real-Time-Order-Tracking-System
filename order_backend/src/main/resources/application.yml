@@ -22,7 +22,9 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       auto-offset-reset: earliest
-      enable-auto-commit: true
+      # kept false so the offset moves only after the listener is done,
+      # otherwise a crash in between silently drops the event
+      enable-auto-commit: false
       properties:
         spring:
           json:
