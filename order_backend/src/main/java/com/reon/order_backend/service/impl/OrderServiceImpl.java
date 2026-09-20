@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -33,6 +34,25 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+
+    /*
+    Order flow written down in one place.
+    Key is the current status and the value holds the statuses we are allowed to move to.
+    Earlier this was decided by comparing enum ordinal, which used to break the moment
+    someone reordered the enum, and RETURNED was also not reachable properly.
+     */
+    private static final Map<Order.Status, Set<Order.Status>> ALLOWED_NEXT_STATUS = Map.of(
+            Order.Status.PENDING, Set.of(Order.Status.CONFIRMED, Order.Status.CANCELLED),
+            Order.Status.CONFIRMED, Set.of(Order.Status.PROCESSING, Order.Status.CANCELLED),
+            Order.Status.PROCESSING, Set.of(Order.Status.PACKED, Order.Status.CANCELLED),
+            Order.Status.PACKED, Set.of(Order.Status.SHIPPED, Order.Status.CANCELLED),
+            Order.Status.SHIPPED, Set.of(Order.Status.OUT_FOR_DELIVERY),
+            Order.Status.OUT_FOR_DELIVERY, Set.of(Order.Status.DELIVERED),
+            Order.Status.DELIVERED, Set.of(Order.Status.RETURNED),
+            // nothing can happen after these two
+            Order.Status.CANCELLED, Set.of(),
+            Order.Status.RETURNED, Set.of()
+    );
 
     public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository,
                             KafkaTemplate<String, Object> kafkaTemplate) {
@@ -181,22 +201,9 @@ public class OrderServiceImpl implements OrderService {
         Order.Status currentStatus = order.getStatus();
         Order.Status newStatus = orderUpdateStatus.getStatus();
 
-        // Once cancelled, no further updates are allowed
-        if (currentStatus == Order.Status.CANCELLED) {
-            throw new OrderNotCancellableException("Order is cancelled and cannot be updated further.");
-        }
-
-        // Prevent backward movement (e.g., SHIPPED → PROCESSING)
-        if (newStatus.ordinal() < currentStatus.ordinal()) {
+        if (!nextAllowedStatus(currentStatus).contains(newStatus)) {
             throw new OrderNotCancellableException(
-                    "Invalid status update: cannot move backward from " + currentStatus + " to " + newStatus
-            );
-        }
-
-        // Allow cancellation only for early stages
-        if (newStatus == Order.Status.CANCELLED && !isOrderCancellable(currentStatus)) {
-            throw new OrderNotCancellableException(
-                    "Cannot cancel order once it has reached " + currentStatus + " stage."
+                    "Invalid status update: cannot move from " + currentStatus + " to " + newStatus
             );
         }
         return newStatus;
@@ -216,10 +223,12 @@ public class OrderServiceImpl implements OrderService {
         return OrderMapper.orderResponseToUser(order);
     }
 
+    private Set<Order.Status> nextAllowedStatus(Order.Status status) {
+        return ALLOWED_NEXT_STATUS.getOrDefault(status, Set.of());
+    }
+
+    // cancellable simply means CANCELLED is one of the allowed next steps
     private boolean isOrderCancellable(Order.Status status) {
-        return status == Order.Status.PENDING
-                || status == Order.Status.CONFIRMED
-                || status == Order.Status.PROCESSING
-                || status == Order.Status.PACKED;
+        return nextAllowedStatus(status).contains(Order.Status.CANCELLED);
     }
 }
