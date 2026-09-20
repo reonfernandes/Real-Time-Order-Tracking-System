@@ -91,7 +91,8 @@ public class AuthController {
         response.addCookie(cookie);
         log.info("Auth Controller :: Saved the cookie to Cookie");
 
-        log.info("Auth Controller :: Authentication successful: {}", jwtResponse);
+        // token itself is never logged, printing it is as good as leaking the password
+        log.info("Auth Controller :: Authentication successful for: {}", login.getEmail());
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(jwtResponse);
