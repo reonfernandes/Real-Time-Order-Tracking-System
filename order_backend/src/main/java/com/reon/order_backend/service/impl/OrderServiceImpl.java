@@ -86,7 +86,8 @@ public class OrderServiceImpl implements OrderService {
 
         if (!order.getUserId().equals(user.getId())) {
             log.warn("Order Service :: Unauthorized access. Order {} belongs to a different user.", orderId);
-            throw new OrderNotFoundException("You do not own this order.");
+            // same message as not found, otherwise the caller gets to know that this order exists
+            throw new OrderNotFoundException("Order not found with id: " + orderId);
         }
 
         // Orders which are already shipped or delivered cannot be cancelled
