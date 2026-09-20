@@ -77,9 +77,6 @@ public class OrderServiceImpl implements OrderService {
 
         Order saveOrder = orderRepository.save(order);
 
-        user.getOrderList().add(saveOrder);
-        userRepository.save(user);
-
         // Once's orders gets saved in database a new event will be generated and send to kafka topic
         publishEvent("order_event", buildEvent(saveOrder, user));
 

@@ -9,7 +9,6 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.index.Indexed;
-import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -47,8 +46,11 @@ public class User implements UserDetails {
         ADMIN
     }
 
-    @DBRef
-    private List<Order> orderList = new ArrayList<>();
+    /*
+    Orders are not kept here anymore.
+    They already live in the orders collection with a userId on them, so holding a second
+    copy here was just one more place which could go out of sync.
+     */
 
     // related to spring security
     @Override

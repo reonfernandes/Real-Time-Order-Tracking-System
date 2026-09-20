@@ -24,5 +24,5 @@ public class UserResponse {
     private LocalDateTime updatedOn;
 
     // only the count is sent here, actual orders are served by the order apis
-    private int totalOrders;
+    private long totalOrders;
 }
