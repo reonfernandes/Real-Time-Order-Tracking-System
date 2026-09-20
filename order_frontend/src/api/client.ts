@@ -2,6 +2,9 @@ import axios, { AxiosError } from 'axios';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 
+// EventSource cannot use the axios instance, so it needs the raw url
+export const apiBaseUrl = baseURL;
+
 /*
 withCredentials is on because the backend also sets the jwt in an httpOnly cookie.
 The token from the login response is kept in memory as a fallback and sent in the

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { errorMessage } from '../../api/client';
 import { cancelOrder, fetchOrderById, updateOrderStatus } from '../../api/orders.api';
 import { useToast } from '../../context/useToast';
+import { useOrderStream } from '../../hooks/useOrderStream';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -15,7 +16,7 @@ import { STATUS_META, isCancellable, isClosed, nextForwardStatus } from '../../l
 import type { OrderResponse } from '../../types';
 import './order-detail.css';
 
-// no push channel on the backend yet, so an open order is re-fetched on a timer
+// only used when the stream is not available, see the comment on the polling effect
 const REFRESH_MS = 8000;
 
 export const OrderDetailPage = () => {
@@ -55,9 +56,21 @@ export const OrderDetailPage = () => {
         };
     }, [orderId, reloadKey]);
 
-    // an order which is still moving is picked up again on a timer, a quiet refresh
+    const open = Boolean(order) && !isClosed(order?.status ?? 'PENDING');
+
+    // stable, otherwise the hook would tear the connection down on every render
+    const applyUpdate = useCallback((fresh: OrderResponse) => setOrder(fresh), []);
+
+    // while this is up the backend pushes every status change as it happens
+    const streaming = useOrderStream(orderId, open, applyUpdate);
+
+    /*
+    Fallback only. If the stream is up nothing polls, if it is not (old browser, cookie
+    missing, proxy in between) the order is fetched again every few seconds so the screen
+    still moves.
+     */
     useEffect(() => {
-        if (!order || isClosed(order.status)) return;
+        if (!open || streaming) return;
 
         const timer = window.setInterval(() => {
             fetchOrderById(orderId)
@@ -68,7 +81,7 @@ export const OrderDetailPage = () => {
         }, REFRESH_MS);
 
         return () => window.clearInterval(timer);
-    }, [order, orderId]);
+    }, [open, streaming, orderId]);
 
     const handleAdvance = async () => {
         if (!order) return;
@@ -119,6 +132,10 @@ export const OrderDetailPage = () => {
 
     const next = nextForwardStatus(order.status);
     const live = !isClosed(order.status);
+    const liveLabel = streaming ? 'Live' : 'Auto refreshing';
+    const liveHint = streaming
+        ? 'Connected to the order stream, updates arrive as they happen'
+        : `Stream not available, checking every ${REFRESH_MS / 1000} seconds`;
 
     return (
         <div className="order-detail">
@@ -139,9 +156,9 @@ export const OrderDetailPage = () => {
                 </div>
 
                 {live ? (
-                    <span className="order-detail__live" title={`Checked every ${REFRESH_MS / 1000} seconds`}>
+                    <span className={`order-detail__live ${streaming ? '' : 'order-detail__live--polling'}`} title={liveHint}>
                         <span className="order-detail__live-dot" />
-                        Auto refreshing
+                        {liveLabel}
                     </span>
                 ) : null}
             </header>
