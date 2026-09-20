@@ -48,9 +48,7 @@ public class OrderServiceImpl implements OrderService {
         order.setUserId(id);
         order.setStatus(Order.Status.PENDING);
 
-        Map<String, LocalDateTime> timeStamp = new HashMap<>();
-        timeStamp.put(Order.Status.PENDING.name(), LocalDateTime.now());
-        order.setTimeStamps(timeStamp);
+        addTimeStamp(order, Order.Status.PENDING);
 
         Order saveOrder = orderRepository.save(order);
 
@@ -61,17 +59,7 @@ public class OrderServiceImpl implements OrderService {
         userRepository.save(user);
 
         // Once's orders gets saved in database a new event will be generated and send to kafka topic
-        OrderEventDTO eventDTO = OrderEventDTO.builder()
-                .orderId(saveOrder.getId())
-                .userId(user.getId())
-                .email(user.getEmail())
-                .eventCreationTime(LocalDateTime.now())
-                .items(saveOrder.getItems())
-                .amount(saveOrder.getAmount())
-                .status(saveOrder.getStatus())
-                .build();
-
-        publishEvent("order_event", eventDTO);
+        publishEvent("order_event", buildEvent(saveOrder, user));
 
         return OrderMapper.orderResponseToUser(saveOrder);
     }
@@ -99,24 +87,26 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderNotFoundException("You do not own this order.");
         }
 
-        // Prevent deleting orders that have reached terminal or delivery stages
+        // Orders which are already shipped or delivered cannot be cancelled
         if (!isOrderCancellable(order.getStatus())) {
-            log.warn("Order Service :: Attempt to delete order {} in non-cancellable state: {}", orderId, order.getStatus());
+            log.warn("Order Service :: Attempt to cancel order {} in non-cancellable state: {}", orderId, order.getStatus());
             throw new OrderNotCancellableException(
-                    "Cannot cancel or delete order once it is " + order.getStatus()
+                    "Cannot cancel order once it is " + order.getStatus()
             );
         }
 
-        orderRepository.deleteById(orderId);
-        log.info("Order Service :: Order deleted from database: {}", orderId);
+        /*
+        Order is not deleted anymore, we just move it to CANCELLED.
+        Deleting was wiping out the timestamps history which we need for tracking.
+         */
+        order.setStatus(Order.Status.CANCELLED);
+        addTimeStamp(order, Order.Status.CANCELLED);
 
-        boolean removed = user.getOrderList().removeIf(o -> o.getId().equals(orderId));
-        if (removed) {
-            userRepository.save(user);
-            log.info("Order Service :: Order reference removed from user: {}", user.getEmail());
-        } else {
-            log.warn("Order Service :: Order reference not found in user's list: {}", orderId);
-        }
+        Order cancelledOrder = orderRepository.save(order);
+        log.info("Order Service :: Order marked as CANCELLED: {}", orderId);
+
+        // user should also get a mail about the cancellation, same as any other status change
+        publishEvent("order_update_event", buildEvent(cancelledOrder, user));
 
         log.info("Order Service :: Cancellation completed for orderId: {}", orderId);
     }
@@ -135,30 +125,37 @@ public class OrderServiceImpl implements OrderService {
         Order.Status newStatus = getStatus(orderUpdateStatus, order);
 
         order.setStatus(newStatus);
+        addTimeStamp(order, newStatus);
+
+        Order updatedOrder = orderRepository.save(order);
+
+        publishEvent("order_update_event", buildEvent(updatedOrder, user));
+        log.info("Order Service :: Order update event sent for status: {}", newStatus);
+
+        return OrderMapper.orderResponseToUser(updatedOrder);
+    }
+
+    // keeps the old timestamps and just adds an entry for the new status
+    private void addTimeStamp(Order order, Order.Status status) {
         Map<String, LocalDateTime> timeStamps = order.getTimeStamps();
         if (timeStamps == null) {
             timeStamps = new HashMap<>();
         }
-        timeStamps.put(newStatus.name(), LocalDateTime.now());
+        timeStamps.put(status.name(), LocalDateTime.now());
         order.setTimeStamps(timeStamps);
-        order.setUpdateOn(LocalDateTime.now());
+    }
 
-        Order updatedOrder = orderRepository.save(order);
-
-        OrderEventDTO updatedEvent = OrderEventDTO.builder()
-                .orderId(updatedOrder.getId())
+    // same event is needed on create, update and cancel, so building it at one place
+    private OrderEventDTO buildEvent(Order order, User user) {
+        return OrderEventDTO.builder()
+                .orderId(order.getId())
                 .userId(user.getId())
                 .email(user.getEmail())
                 .eventCreationTime(LocalDateTime.now())
-                .items(updatedOrder.getItems())
-                .amount(updatedOrder.getAmount())
-                .status(updatedOrder.getStatus())
+                .items(order.getItems())
+                .amount(order.getAmount())
+                .status(order.getStatus())
                 .build();
-
-        publishEvent("order_update_event", updatedEvent);
-        log.info("Order Service :: Order update event sent for status: {}", newStatus);
-
-        return OrderMapper.orderResponseToUser(updatedOrder);
     }
 
     /*
