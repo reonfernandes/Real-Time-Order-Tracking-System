@@ -1,0 +1,17 @@
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    font-weight: 600;
+    white-space: nowrap;
+    border-radius: var(--radius-pill);
+}
+
+.status-pill--sm {
+    padding: 4px 11px;
+    font-size: 12px;
+}
+
+.status-pill--md {
+    padding: 6px 14px;
+    font-size: 13px;
+}

@@ -1,0 +1,39 @@
+.dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(20, 22, 26, 0.45);
+}
+
+.dialog {
+    width: 100%;
+    max-width: 420px;
+    padding: 26px;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-pop);
+    animation: app-rise 0.18s ease-out;
+}
+
+.dialog__title {
+    margin-bottom: 8px;
+    font-size: 19px;
+    font-weight: 700;
+}
+
+.dialog__message {
+    margin-bottom: 22px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink-muted);
+}
+
+.dialog__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
