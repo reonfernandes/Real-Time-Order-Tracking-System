@@ -1,0 +1,119 @@
+.admin-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 1080px;
+    margin: 0 auto;
+}
+
+.admin-search {
+    display: flex;
+    gap: 10px;
+}
+
+.admin-search .field__input {
+    flex-grow: 1;
+}
+
+.admin-search__error {
+    padding-top: 12px;
+    font-size: 14px;
+    color: var(--danger);
+}
+
+.admin-search__hit {
+    margin-top: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.user-table {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-table__head,
+.user-table__row {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) 150px 90px 150px;
+    gap: 16px;
+    align-items: center;
+    padding: 14px 20px;
+}
+
+.user-table__head {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    background: var(--surface-muted);
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.user-table__row {
+    font-size: 14px;
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.user-table__row:last-child {
+    border-bottom: none;
+}
+
+.user-table__user {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.user-table__name {
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.user-table__email,
+.user-table__joined {
+    font-size: 13px;
+    color: var(--ink-muted);
+}
+
+.user-table__id {
+    font-size: 12px;
+    color: var(--ink-faint);
+}
+
+.user-table__roles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.role {
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: var(--radius-pill);
+}
+
+.role--user {
+    color: var(--ink-muted);
+    background: var(--line-soft);
+}
+
+.role--admin {
+    color: var(--accent);
+    background: var(--accent-soft);
+}
+
+@media (max-width: 860px) {
+    .user-table__head {
+        display: none;
+    }
+
+    .user-table__row {
+        grid-template-columns: 1fr;
+        row-gap: 8px;
+    }
+}

@@ -84,7 +84,18 @@ docker compose up --build
 
 This starts MongoDB, Kafka and the backend. App comes up on `http://localhost:8080`.
 
-### 3. Or run only the infra and start the app from the IDE
+### 3. Frontend
+
+```bash
+cd order_frontend
+cp .env.example .env
+npm install
+npm run dev
+```
+
+Opens on `http://localhost:3000`, which is the origin the backend allows by default.
+
+### 4. Or run only the infra and start the app from the IDE
 
 ```bash
 docker compose up mongo kafka
@@ -154,6 +165,7 @@ Authorization: Bearer <token>
 ## Project structure
 
 ```
+order_frontend/src        # react frontend, see order_frontend/README.md
 order_backend/src/main/java/com/reon/order_backend
 ├── config        # security and swagger configuration
 ├── controller    # rest endpoints
