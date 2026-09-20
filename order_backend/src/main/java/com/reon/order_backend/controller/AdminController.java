@@ -10,6 +10,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+
 import lombok.extern.slf4j.Slf4j;
 
 import org.bson.types.ObjectId;
@@ -17,10 +20,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 
 @RestController
+@Validated
 @RequestMapping(
         name = "endpoints only accessible for user with admin role",
         path = "/api/v1/admin"
@@ -52,8 +57,11 @@ public class AdminController {
                     content = @Content(schema = @Schema(implementation = Page.class)))
     })
     public ResponseEntity<Page<UserResponse>> fetchUsers(
-            @RequestParam(name = "page", defaultValue = "0") int pageNo,
-            @RequestParam(name = "size", defaultValue = "10") int pageSize
+            @RequestParam(name = "page", defaultValue = "0")
+            @Min(value = 0, message = "Page cannot be negative") int pageNo,
+            @RequestParam(name = "size", defaultValue = "10")
+            @Min(value = 1, message = "Size must be at least 1")
+            @Max(value = 100, message = "Size cannot be more than 100") int pageSize
     ) {
         log.info("Admin Controller :: Fetch all users → page = {}, size = {}", pageNo, pageSize);
         Page<UserResponse> users = adminService.fetchAllUsers(pageNo, pageSize);
