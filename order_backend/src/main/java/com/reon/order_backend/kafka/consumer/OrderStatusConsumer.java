@@ -4,8 +4,11 @@ import com.reon.order_backend.document.FailedEvent;
 import com.reon.order_backend.document.ProcessedEvent;
 import com.reon.order_backend.dto.kafka.OrderEventDTO;
 import com.reon.order_backend.email.EmailService;
+import com.reon.order_backend.mapper.OrderMapper;
 import com.reon.order_backend.repository.FailedEventRepository;
+import com.reon.order_backend.repository.OrderRepository;
 import com.reon.order_backend.repository.ProcessedEventRepository;
+import com.reon.order_backend.stream.OrderStreamService;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.types.ObjectId;
 import org.springframework.kafka.annotation.DltHandler;
@@ -26,12 +29,17 @@ public class OrderStatusConsumer {
     private final EmailService emailService;
     private final FailedEventRepository failedEventRepository;
     private final ProcessedEventRepository processedEventRepository;
+    private final OrderRepository orderRepository;
+    private final OrderStreamService orderStreamService;
 
     public OrderStatusConsumer(EmailService emailService, FailedEventRepository failedEventRepository,
-                               ProcessedEventRepository processedEventRepository) {
+                               ProcessedEventRepository processedEventRepository, OrderRepository orderRepository,
+                               OrderStreamService orderStreamService) {
         this.emailService = emailService;
         this.failedEventRepository = failedEventRepository;
         this.processedEventRepository = processedEventRepository;
+        this.orderRepository = orderRepository;
+        this.orderStreamService = orderStreamService;
     }
 
     @RetryableTopic(
@@ -48,6 +56,7 @@ public class OrderStatusConsumer {
         if (alreadyProcessed(orderEventDTO)) {
             return;
         }
+        pushToWatchers(orderEventDTO);
         sendOrderPlaceEmail(orderEventDTO);
         markProcessed(orderEventDTO);
     }
@@ -94,6 +103,7 @@ public class OrderStatusConsumer {
         if (alreadyProcessed(orderEventDTO)) {
             return;
         }
+        pushToWatchers(orderEventDTO);
         sendOrderStatusEmail(orderEventDTO);
         markProcessed(orderEventDTO);
     }
@@ -112,6 +122,26 @@ public class OrderStatusConsumer {
                 """.formatted(orderId, newOrderStatus);
         emailService.sendOrderStatusEmail(orderEventDTO.getEmail(), "Order Status", emailBody);
         log.info("Order Consumer :: Order status is updated to: {}", newOrderStatus);
+    }
+
+    /*
+    Anybody watching this order on the tracking screen gets the update from here, which
+    means the screen moves only once the event has actually come back through kafka.
+    The order is read again from the database because the event does not carry the
+    timestamps the timeline needs.
+
+    Pushed before the mail on purpose, the screen should not wait for smtp. If the mail
+    then fails the retry runs this again, which is harmless, the client just receives the
+    same status once more.
+     */
+    private void pushToWatchers(OrderEventDTO orderEventDTO) {
+        ObjectId orderId = orderEventDTO.getOrderId();
+        if (orderId == null) {
+            return;
+        }
+
+        orderRepository.findById(orderId)
+                .ifPresent(order -> orderStreamService.publish(orderId.toHexString(), OrderMapper.orderResponseToUser(order)));
     }
 
     private String eventKey(OrderEventDTO orderEventDTO) {
