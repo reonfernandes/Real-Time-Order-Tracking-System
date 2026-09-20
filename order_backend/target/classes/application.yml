@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: order_backend
+  config:
+    import: optional:file:.env
+  data:
+    mongodb:
+      host: localhost
+      port: 27017
+      database: order_tracking
+      auto-index-creation: true
+  kafka:
+    producer:
+      bootstrap-servers: localhost:9092
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+    consumer:
+      bootstrap-servers: localhost:9092
+      group-id: grp_orders
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: true
+      properties:
+        spring:
+          json:
+            trusted:
+              packages: "*"
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    protocol: smtp
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+email:
+  sender: ${EMAIL_SENDER}
+
+jwt:
+  secret-key: ${JWT_SECRET}
+  expiration-time: ${EXPIRATION_TIME}

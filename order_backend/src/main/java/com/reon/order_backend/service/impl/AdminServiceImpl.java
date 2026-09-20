@@ -27,7 +27,8 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public Page<UserResponse> fetchAllUsers(int pageNo, int pageSize) {
         log.info("Admin Service :: Fetching users from page: {} of size: {}", pageNo, pageSize);
-        Pageable pageable = PageRequest.of(pageNo - 1, pageSize);
+        // page numbers coming from the controller are already 0 based, so no need to subtract 1 here
+        Pageable pageable = PageRequest.of(pageNo, pageSize);
         Page<User> users = userRepository.findAll(pageable);
         return users.map(userMapper::responseToUser);
     }
