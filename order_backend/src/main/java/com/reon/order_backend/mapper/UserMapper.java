@@ -3,10 +3,16 @@ package com.reon.order_backend.mapper;
 import com.reon.order_backend.document.User;
 import com.reon.order_backend.dto.user.UserRequest;
 import com.reon.order_backend.dto.user.UserResponse;
+import com.reon.order_backend.repository.OrderRepository;
 import org.springframework.stereotype.Component;
 
 @Component
 public class UserMapper {
+    private final OrderRepository orderRepository;
+
+    public UserMapper(OrderRepository orderRepository) {
+        this.orderRepository = orderRepository;
+    }
 
     public User mapToEntity(UserRequest dto) {
         /*
@@ -37,7 +43,7 @@ public class UserMapper {
                 .roles(user.getRoles())
                 .createdOn(user.getCreatedOn())
                 .updatedOn(user.getUpdatedOn())
-                .totalOrders(user.getOrderList() == null ? 0 : user.getOrderList().size())
+                .totalOrders(orderRepository.countByUserId(user.getId()))
                 .build();
     }
 }

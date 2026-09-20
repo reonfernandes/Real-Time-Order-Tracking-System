@@ -9,13 +9,11 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.security.Key;
 import java.util.Date;
-import java.util.stream.Collectors;
 
 @Component
 @Slf4j
@@ -41,16 +39,15 @@ public class JwtUtils {
         return null;
     }
 
+    /*
+    Roles are not put inside the token on purpose.
+    The filter loads the user from db on every request, so the roles are always the latest ones.
+    If they were kept in the token, a role change would only apply after the user logs in again.
+     */
     public String generateToken(User user) {
         String email = user.getEmail();
-        String roles = user
-                .getAuthorities()
-                .stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.joining(", "));
         return Jwts.builder()
                 .subject(email)
-                .claim("roles", roles)
                 .issuedAt(new Date())
                 .expiration(new Date((new Date().getTime() + expirationTime)))
                 .signWith(key())

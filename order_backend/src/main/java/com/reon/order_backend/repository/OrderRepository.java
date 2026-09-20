@@ -14,4 +14,6 @@ public interface OrderRepository extends MongoRepository<Order, ObjectId> {
     Page<Order> findByUserId(ObjectId userId, Pageable pageable);
 
     Optional<Order> findById(ObjectId id);
+
+    long countByUserId(ObjectId userId);
 }

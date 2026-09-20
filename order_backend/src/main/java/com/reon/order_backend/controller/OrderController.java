@@ -68,8 +68,7 @@ public class OrderController {
 
         log.info("OrderController :: Request to generate order: {}", createOrder);
 
-        User user = userRepository.findByEmail(principal.getName())
-                .orElseThrow(() -> new UserNotFoundException("User not found."));
+        User user = loggedInUser(principal);
 
         OrderResponse response = orderService.createOrder(createOrder, user.getId());
 
@@ -95,8 +94,7 @@ public class OrderController {
 
         log.info("OrderController :: Fetching orders page: {}, size: {}", page, size);
 
-        User user = userRepository.findByEmail(principal.getName())
-                .orElseThrow(() -> new UserNotFoundException("User not found."));
+        User user = loggedInUser(principal);
 
         Page<OrderResponse> orders = orderService.fetchAllOrders(page, size, user);
         return ResponseEntity.ok(orders);
@@ -117,8 +115,7 @@ public class OrderController {
 
         log.info("OrderController :: Fetching order id: {}", orderId);
 
-        User user = userRepository.findByEmail(principal.getName())
-                .orElseThrow(() -> new UserNotFoundException("User not found."));
+        User user = loggedInUser(principal);
 
         OrderResponse fetchedOrder = orderService.fetchOrderViaId(orderId, user);
         return ResponseEntity.ok(fetchedOrder);
@@ -137,8 +134,7 @@ public class OrderController {
 
         log.info("OrderController :: Cancel order request id: {}", orderId);
 
-        User user = userRepository.findByEmail(principal.getName())
-                .orElseThrow(() -> new UserNotFoundException("User not found."));
+        User user = loggedInUser(principal);
 
         orderService.cancelOrder(orderId, user);
         return ResponseEntity.noContent().build();
@@ -160,10 +156,14 @@ public class OrderController {
 
         log.info("OrderController :: Update order status request id: {}", orderId);
 
-        User user = userRepository.findByEmail(principal.getName())
-                .orElseThrow(() -> new UserNotFoundException("User not found."));
+        User user = loggedInUser(principal);
 
         OrderResponse updatedOrder = orderService.updateOrder(orderId, request, user);
         return ResponseEntity.ok(updatedOrder);
+    }
+    // same lookup was repeated in every method, keeping it at one place now
+    private User loggedInUser(Principal principal) {
+        return userRepository.findByEmail(principal.getName())
+                .orElseThrow(() -> new UserNotFoundException("User not found."));
     }
 }
