@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Data
 @AllArgsConstructor
@@ -20,5 +21,6 @@ public class UserLogin {
     private String email;
 
     @NotBlank(message = "Password is necessary.")
+    @ToString.Exclude          // else the password lands in the logs
     private String password;
 }

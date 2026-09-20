@@ -16,6 +16,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.extern.slf4j.Slf4j;
 
 import org.bson.types.ObjectId;
@@ -24,11 +26,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 
 @RestController
+@Validated
 @RequestMapping(
         name = "endpoint related to orders, accessible after authentication",
         path = "/api/v1/order"
@@ -83,9 +87,11 @@ public class OrderController {
             @ApiResponse(responseCode = "200", description = "Orders fetched successfully",
                     content = @Content(schema = @Schema(implementation = Page.class)))
     })
-    public ResponseEntity<Page<OrderResponse>> fetchOrders(@RequestParam(defaultValue = "0") int page,
-                                                           @RequestParam(defaultValue = "10") int size,
-                                                           Principal principal) {
+    public ResponseEntity<Page<OrderResponse>> fetchOrders(
+            @RequestParam(defaultValue = "0") @Min(value = 0, message = "Page cannot be negative") int page,
+            @RequestParam(defaultValue = "10") @Min(value = 1, message = "Size must be at least 1")
+            @Max(value = 100, message = "Size cannot be more than 100") int size,
+            Principal principal) {
 
         log.info("OrderController :: Fetching orders page: {}, size: {}", page, size);
 

@@ -8,6 +8,7 @@ import org.bson.types.ObjectId;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
@@ -24,6 +25,8 @@ import java.util.Map;
 public class Order {
     @Id
     private ObjectId id;
+    // indexed because every "my orders" call searches on this field
+    @Indexed
     private ObjectId userId;    // which user has placed the order.
 
     // todo: later create a product document..

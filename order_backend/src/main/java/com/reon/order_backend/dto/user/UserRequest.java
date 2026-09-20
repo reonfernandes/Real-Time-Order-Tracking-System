@@ -24,6 +24,7 @@ public class UserRequest {
     private String email;
 
     @NotBlank(message = "Password is necessary.")
+    @ToString.Exclude          // else the password lands in the logs
     @Size(
             min = 8,
             max = 16,

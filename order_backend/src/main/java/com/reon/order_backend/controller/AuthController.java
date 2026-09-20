@@ -77,7 +77,7 @@ public class AuthController {
     })
     public ResponseEntity<JwtResponse> userAuthentication(@Valid @RequestBody UserLogin login,
                                                           HttpServletResponse response) {
-        log.info("Auth Controller :: Incoming login request: {}", login);
+        log.info("Auth Controller :: Incoming login request: {}", login.getEmail());
         JwtResponse jwtResponse = userService.authenticateUser(login);
 
         log.info("Auth Controller :: Saving the jwt token to cookie.");
@@ -91,7 +91,8 @@ public class AuthController {
         response.addCookie(cookie);
         log.info("Auth Controller :: Saved the cookie to Cookie");
 
-        log.info("Auth Controller :: Authentication successful: {}", jwtResponse);
+        // token itself is never logged, printing it is as good as leaking the password
+        log.info("Auth Controller :: Authentication successful for: {}", login.getEmail());
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(jwtResponse);

@@ -1,9 +1,11 @@
 package com.reon.order_backend.kafka.consumer;
 
 import com.reon.order_backend.document.FailedEvent;
+import com.reon.order_backend.document.ProcessedEvent;
 import com.reon.order_backend.dto.kafka.OrderEventDTO;
 import com.reon.order_backend.email.EmailService;
 import com.reon.order_backend.repository.FailedEventRepository;
+import com.reon.order_backend.repository.ProcessedEventRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.types.ObjectId;
 import org.springframework.kafka.annotation.DltHandler;
@@ -23,10 +25,13 @@ public class OrderStatusConsumer {
 
     private final EmailService emailService;
     private final FailedEventRepository failedEventRepository;
+    private final ProcessedEventRepository processedEventRepository;
 
-    public OrderStatusConsumer(EmailService emailService, FailedEventRepository failedEventRepository) {
+    public OrderStatusConsumer(EmailService emailService, FailedEventRepository failedEventRepository,
+                               ProcessedEventRepository processedEventRepository) {
         this.emailService = emailService;
         this.failedEventRepository = failedEventRepository;
+        this.processedEventRepository = processedEventRepository;
     }
 
     @RetryableTopic(
@@ -40,7 +45,11 @@ public class OrderStatusConsumer {
     )
     public void orderPlaceConsumer(OrderEventDTO orderEventDTO) {
         log.info("Order Placed: {}", orderEventDTO);
+        if (alreadyProcessed(orderEventDTO)) {
+            return;
+        }
         sendOrderPlaceEmail(orderEventDTO);
+        markProcessed(orderEventDTO);
     }
 
     private void sendOrderPlaceEmail(OrderEventDTO orderEventDTO) {
@@ -82,7 +91,11 @@ public class OrderStatusConsumer {
     @KafkaListener(topics = "order_update_event", groupId = "grp_orders")
     public void orderStatusConsumer(OrderEventDTO orderEventDTO) {
         log.info("Order Status: {}", orderEventDTO);
+        if (alreadyProcessed(orderEventDTO)) {
+            return;
+        }
         sendOrderStatusEmail(orderEventDTO);
+        markProcessed(orderEventDTO);
     }
 
     private void sendOrderStatusEmail(OrderEventDTO orderEventDTO) {
@@ -99,6 +112,31 @@ public class OrderStatusConsumer {
                 """.formatted(orderId, newOrderStatus);
         emailService.sendOrderStatusEmail(orderEventDTO.getEmail(), "Order Status", emailBody);
         log.info("Order Consumer :: Order status is updated to: {}", newOrderStatus);
+    }
+
+    private String eventKey(OrderEventDTO orderEventDTO) {
+        return orderEventDTO.getOrderId() + ":" + orderEventDTO.getStatus();
+    }
+
+    // kafka can deliver the same event again, and we do not want to mail the user twice
+    private boolean alreadyProcessed(OrderEventDTO orderEventDTO) {
+        boolean processed = processedEventRepository.existsById(eventKey(orderEventDTO));
+        if (processed) {
+            log.info("Order Consumer :: Event already handled, skipping: {}", eventKey(orderEventDTO));
+        }
+        return processed;
+    }
+
+    /*
+    Marked only after the mail goes out. If we mark it before and the mail fails,
+    the retry would get skipped and the user would never be informed.
+     */
+    private void markProcessed(OrderEventDTO orderEventDTO) {
+        ProcessedEvent processedEvent = ProcessedEvent.builder()
+                .id(eventKey(orderEventDTO))
+                .processedAt(LocalDateTime.now())
+                .build();
+        processedEventRepository.save(processedEvent);
     }
 
     /*
