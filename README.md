@@ -29,6 +29,8 @@ event driven flow, JWT based security and containerised setup.
 - User registers and logs in, token comes back in the response and also in a cookie
 - Logged in user can place an order, see their orders, track one order and cancel an order
 - Every order event is published to Kafka and a consumer sends the email
+- The tracking screen is fed by that same consumer over server sent events, so a status
+  change shows up without refreshing anything
 - Failed events are retried and whatever still fails lands in a `failed_events` collection
 - Same event is never mailed twice, handled events are noted in `processed_events`
 - Admin can list users and look them up by id or email
@@ -129,6 +131,7 @@ Base path is `/api/v1`. Swagger UI is at `http://localhost:8080/swagger-ui.html`
 | GET | `/order/fetch/{orderId}` | one order |
 | PUT | `/order/update/{orderId}` | move the order to the next status |
 | DELETE | `/order/cancel/{orderId}` | cancel the order |
+| GET | `/order/stream/{orderId}` | live status of one order, server sent events |
 
 Page starts from **0** and size can be between 1 and 100.
 
@@ -147,6 +150,36 @@ Either header or cookie works:
 ```
 Authorization: Bearer <token>
 ```
+
+---
+
+## Live tracking
+
+`GET /api/v1/order/stream/{orderId}` keeps the connection open and sends an event every
+time the status of that order changes.
+
+The push does not come from the service which saved the change, it comes from the Kafka
+consumer:
+
+```
+PUT /order/update/{id}  ->  order saved  ->  order_update_event  ->  consumer
+                                                                      |-> email
+                                                                      `-> sse push -> browser
+```
+
+So the screen moves only after the event has actually travelled through Kafka and come
+back, the same path the email takes.
+
+Worth knowing:
+
+- Connections are held in memory, so this works as written for one backend instance. With
+  more than one, a client only receives the events of the instance it is connected to, and
+  that would need something shared in between, redis pub/sub for example.
+- A ping is sent every 25 seconds so idle connections are not dropped.
+- The browser reconnects on its own, and the first event on a new connection is always the
+  current status, so nothing is missed while it was away.
+- The stream is guarded exactly like the normal fetch, you can only open one for your own
+  order.
 
 ---
 

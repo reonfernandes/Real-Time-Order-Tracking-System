@@ -7,6 +7,7 @@ import com.reon.order_backend.dto.order.OrderUpdateStatus;
 import com.reon.order_backend.exception.UserNotFoundException;
 import com.reon.order_backend.repository.UserRepository;
 import com.reon.order_backend.service.OrderService;
+import com.reon.order_backend.stream.OrderStreamService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -23,11 +24,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.bson.types.ObjectId;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.security.Principal;
 
@@ -46,10 +49,13 @@ public class OrderController {
 
     private final OrderService orderService;
     private final UserRepository userRepository;
+    private final OrderStreamService orderStreamService;
 
-    public OrderController(OrderService orderService, UserRepository userRepository) {
+    public OrderController(OrderService orderService, UserRepository userRepository,
+                           OrderStreamService orderStreamService) {
         this.orderService = orderService;
         this.userRepository = userRepository;
+        this.orderStreamService = orderStreamService;
     }
 
     // admin also holds an account, so they should be able to use their own orders
@@ -161,6 +167,31 @@ public class OrderController {
         OrderResponse updatedOrder = orderService.updateOrder(orderId, request, user);
         return ResponseEntity.ok(updatedOrder);
     }
+    /*
+    Keeps a connection open and pushes the order every time its status changes, so the
+    tracking screen does not have to keep asking. fetchOrderViaId is called first, it
+    throws when the order is not there or belongs to somebody else, which keeps this
+    endpoint as guarded as the normal fetch.
+     */
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @GetMapping(path = "/stream/{orderId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(
+            summary = "Live status of an order",
+            description = "Server sent events, one event every time the status of this order changes."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Stream opened, current status is sent first")
+    })
+    public SseEmitter streamOrder(@PathVariable ObjectId orderId, Principal principal) {
+
+        log.info("OrderController :: Client subscribed to order: {}", orderId);
+
+        User user = loggedInUser(principal);
+        OrderResponse order = orderService.fetchOrderViaId(orderId, user);
+
+        return orderStreamService.subscribe(orderId.toHexString(), order);
+    }
+
     // same lookup was repeated in every method, keeping it at one place now
     private User loggedInUser(Principal principal) {
         return userRepository.findByEmail(principal.getName())

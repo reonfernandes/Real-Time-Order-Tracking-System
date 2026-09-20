@@ -77,3 +77,13 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* stream is not up, we are only polling, so the badge is quieter */
+.order-detail__live--polling {
+    color: var(--ink-muted);
+}
+
+.order-detail__live--polling .order-detail__live-dot {
+    background: var(--ink-faint);
+    animation: none;
+}
