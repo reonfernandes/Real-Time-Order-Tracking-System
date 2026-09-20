@@ -1,6 +1,5 @@
 package com.reon.order_backend.dto.user;
 
-import com.reon.order_backend.document.Order;
 import com.reon.order_backend.document.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,7 +8,6 @@ import lombok.NoArgsConstructor;
 import org.bson.types.ObjectId;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Set;
 
 @Data
@@ -24,5 +22,7 @@ public class UserResponse {
     private Set<User.Role> roles;
     private LocalDateTime createdOn;
     private LocalDateTime updatedOn;
-    private List<Order> orderList;
+
+    // only the count is sent here, actual orders are served by the order apis
+    private int totalOrders;
 }
