@@ -84,7 +84,8 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public Page<OrderResponse> fetchAllOrders(int pageNo, int pageSize, User user) {
         log.info("Order Service :: Fetching orders for user ID: {}, page: {}, size: {}", user.getId(), pageNo, pageSize);
-        Pageable pageable = PageRequest.of(pageNo - 1, pageSize);
+        // page numbers coming from the controller are already 0 based, so no need to subtract 1 here
+        Pageable pageable = PageRequest.of(pageNo, pageSize);
         Page<Order> orders = orderRepository.findByUserId(user.getId(), pageable);
         return orders.map(OrderMapper::orderResponseToUser);
     }
