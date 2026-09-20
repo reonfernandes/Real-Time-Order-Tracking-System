@@ -1,0 +1,14 @@
+# build output
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# env file, holds mail and jwt secrets
+.env
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# logs
+*.log
