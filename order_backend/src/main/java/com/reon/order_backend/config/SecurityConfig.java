@@ -2,6 +2,7 @@ package com.reon.order_backend.config;
 
 import com.reon.order_backend.jwt.JwtAuthEntryPoint;
 import com.reon.order_backend.jwt.JwtAuthenticationFilter;
+import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -47,6 +48,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(
                         auth ->
                                 auth
+                                        /*
+                                        The sse endpoint finishes as an async request, and when the container
+                                        comes back to close it there is no authentication on that thread any
+                                        more, so security denied it and logged a stack trace. These two are
+                                        internal dispatches of a request which was already allowed once, a
+                                        client cannot call them from outside.
+                                         */
+                                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                                         .requestMatchers("/api/v1/auth/**").permitAll()
                                         .requestMatchers("/api/v1/order/**").authenticated()
                                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
