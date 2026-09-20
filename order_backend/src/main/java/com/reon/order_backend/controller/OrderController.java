@@ -48,7 +48,8 @@ public class OrderController {
         this.userRepository = userRepository;
     }
 
-    @PreAuthorize("hasRole('USER')")
+    // admin also holds an account, so they should be able to use their own orders
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     @PostMapping(path = "/generateOrder")
     @Operation(
             summary = "Generate a new Order",
@@ -72,7 +73,7 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     @GetMapping(path = "/orders")
     @Operation(
             summary = "Fetch user's orders",
@@ -95,7 +96,7 @@ public class OrderController {
         return ResponseEntity.ok(orders);
     }
 
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     @GetMapping(path = "/fetch/{orderId}")
     @Operation(
             summary = "Fetch specific order details",
@@ -117,7 +118,7 @@ public class OrderController {
         return ResponseEntity.ok(fetchedOrder);
     }
 
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     @DeleteMapping(path = "/cancel/{orderId}")
     @Operation(
             summary = "Cancel an order",
@@ -137,7 +138,7 @@ public class OrderController {
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     @PutMapping(path = "/update/{orderId}")
     @Operation(
             summary = "Update order status",
