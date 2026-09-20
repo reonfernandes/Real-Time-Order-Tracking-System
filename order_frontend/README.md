@@ -76,10 +76,15 @@ httpOnly cookie. The cookie is what keeps the session alive, axios sends it beca
 app calls the admin users endpoint once, and the Users link shows only if that call is
 allowed. A `/auth/me` on the backend would replace this.
 
-**Tracking auto refreshes, it does not stream.** The backend has no push channel yet, so an
-order which is still moving is fetched again every 8 seconds. Once it is delivered,
-cancelled or returned the timer stops. Whenever the backend gets an SSE endpoint this is
-the one place which has to change.
+**Tracking listens to a stream, polling is only a fallback.** The screen subscribes to
+`/order/stream/{orderId}` and applies whatever the backend pushes. If that connection
+cannot be opened, the order is fetched again every 8 seconds instead, and the badge in
+the corner says which of the two is running. Both stop once the order is delivered,
+cancelled or returned.
+
+`EventSource` cannot send an `Authorization` header, so the stream depends on the jwt
+cookie and on the backend allowing credentials for this origin. That is the reason the
+cookie is worth keeping even though the token also comes back in the login response.
 
 **Status rules are mirrored, not owned.** `lib/status.ts` keeps the same allowed transitions
 the backend has, only to decide which buttons to show. The backend still validates
