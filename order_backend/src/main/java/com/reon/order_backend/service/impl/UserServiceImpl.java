@@ -5,6 +5,7 @@ import com.reon.order_backend.dto.user.UserLogin;
 import com.reon.order_backend.dto.user.UserRequest;
 import com.reon.order_backend.dto.user.UserResponse;
 import com.reon.order_backend.exception.EmailAlreadyExistsException;
+import com.reon.order_backend.exception.UserNotFoundException;
 import com.reon.order_backend.jwt.JwtResponse;
 import com.reon.order_backend.jwt.JwtUtils;
 import com.reon.order_backend.mapper.UserMapper;
@@ -58,6 +59,18 @@ public class UserServiceImpl implements UserService {
         User savedUser = userRepository.save(user);
         log.info("User Service :: User saved: {}", savedUser.getEmail());
         return userMapper.responseToUser(savedUser);
+    }
+
+    /*
+    Backs the /me endpoint. The email comes from the authenticated principal, never from
+    the request body, so there is nothing here a caller can point at somebody else.
+     */
+    @Override
+    public UserResponse fetchCurrentUser(String email) {
+        User user = userRepository.findByEmail(email).orElseThrow(
+                () -> new UserNotFoundException("User not found with provided email.")
+        );
+        return userMapper.responseToUser(user);
     }
 
     @Override

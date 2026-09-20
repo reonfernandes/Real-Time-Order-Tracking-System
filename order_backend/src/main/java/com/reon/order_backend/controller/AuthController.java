@@ -3,7 +3,10 @@ package com.reon.order_backend.controller;
 import com.reon.order_backend.dto.user.UserLogin;
 import com.reon.order_backend.dto.user.UserRequest;
 import com.reon.order_backend.dto.user.UserResponse;
+import com.reon.order_backend.jwt.JwtCookieService;
 import com.reon.order_backend.jwt.JwtResponse;
+import com.reon.order_backend.jwt.JwtUtils;
+import com.reon.order_backend.jwt.TokenRevocationService;
 import com.reon.order_backend.service.UserService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,16 +16,17 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.security.Principal;
 
 @RestController
 @RequestMapping(
@@ -36,12 +40,16 @@ import org.springframework.web.bind.annotation.*;
 )
 public class AuthController {
     private final UserService userService;
+    private final JwtCookieService jwtCookieService;
+    private final JwtUtils jwtUtils;
+    private final TokenRevocationService tokenRevocationService;
 
-    @Value("${jwt.expiration-time}")
-    private Long tokenExpirationTime;
-
-    public AuthController(UserService userService) {
+    public AuthController(UserService userService, JwtCookieService jwtCookieService, JwtUtils jwtUtils,
+                          TokenRevocationService tokenRevocationService) {
         this.userService = userService;
+        this.jwtCookieService = jwtCookieService;
+        this.jwtUtils = jwtUtils;
+        this.tokenRevocationService = tokenRevocationService;
     }
 
     @PostMapping(
@@ -72,7 +80,7 @@ public class AuthController {
             description = "This endpoint allows user to login by providing valid email and password."
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Login successful. JWT is set in cookie.",
+            @ApiResponse(responseCode = "200", description = "Login successful. JWT is set in cookie.",
             content = {@Content(schema = @Schema(implementation = JwtResponse.class))})
     })
     public ResponseEntity<JwtResponse> userAuthentication(@Valid @RequestBody UserLogin login,
@@ -80,22 +88,36 @@ public class AuthController {
         log.info("Auth Controller :: Incoming login request: {}", login.getEmail());
         JwtResponse jwtResponse = userService.authenticateUser(login);
 
-        log.info("Auth Controller :: Saving the jwt token to cookie.");
-        Cookie cookie = new Cookie("JWT", jwtResponse.getToken());
-        cookie.setPath("/");
-        // httpOnly keeps the token away from javascript, so XSS cannot read it
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setMaxAge((int) (tokenExpirationTime / 1000));
-        cookie.setAttribute("SameSite", "Strict");
-        response.addCookie(cookie);
-        log.info("Auth Controller :: Saved the cookie to Cookie");
+        jwtCookieService.write(response, jwtResponse.getToken());
 
         // token itself is never logged, printing it is as good as leaking the password
         log.info("Auth Controller :: Authentication successful for: {}", login.getEmail());
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(jwtResponse);
+    }
+
+    /*
+    Who am I. The frontend needs the name and the roles to draw itself, and it used to
+    work that out by calling an admin only endpoint and watching whether it came back
+    403, which left a failed request in the logs on every normal login and put the admin
+    flag in localStorage where the user could edit it. This answers the question directly.
+     */
+    @GetMapping(
+            name = "endpoint for the currently signed in user",
+            path = "/me"
+    )
+    @Operation(
+            summary = "Current user",
+            description = "Returns the profile of whoever the request is authenticated as."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Profile of the signed in user",
+                    content = {@Content(schema = @Schema(implementation = UserResponse.class))})
+    })
+    public ResponseEntity<UserResponse> currentUser(Principal principal) {
+        log.info("Auth Controller :: Profile request for: {}", principal.getName());
+        return ResponseEntity.ok(userService.fetchCurrentUser(principal.getName()));
     }
 
     @PostMapping(
@@ -109,16 +131,12 @@ public class AuthController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Logout successful.")
     })
-    public ResponseEntity<?> logout(HttpServletResponse response) {
+    public ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response) {
         log.info("Auth Controller :: Incoming request for logging out.");
 
-        Cookie cookie = new Cookie("JWT", null);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        cookie.setAttribute("SameSite", "Strict");
-        response.addCookie(cookie);
+        // clearing the cookie is not enough, a copy of the token would keep working
+        tokenRevocationService.revoke(jwtUtils.getJwtFromHeader(request));
+        jwtCookieService.clear(response);
 
         log.info("Auth Controller :: Logout successful.");
         return ResponseEntity

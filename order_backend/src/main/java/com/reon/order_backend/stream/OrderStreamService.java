@@ -67,9 +67,19 @@ public class OrderStreamService {
         emitters.forEach((orderId, open) -> open.forEach(emitter -> send(orderId, emitter, "ping", "keep-alive")));
     }
 
+    /*
+    Three different threads can end up here for the same emitter: the request thread
+    sending the first snapshot, the kafka consumer thread pushing an update, and the
+    scheduler sending the heartbeat. SseEmitter.send is not thread safe, and one event
+    written in the middle of another comes out as garbage on the wire, so the writes to
+    one emitter are serialised. Locking on the emitter only blocks the clients sharing
+    it, the other orders keep going.
+     */
     private void send(String orderId, SseEmitter emitter, String eventName, Object payload) {
         try {
-            emitter.send(SseEmitter.event().name(eventName).data(payload));
+            synchronized (emitter) {
+                emitter.send(SseEmitter.event().name(eventName).data(payload));
+            }
         } catch (IOException | IllegalStateException exception) {
             // client went away, drop it instead of trying again
             remove(orderId, emitter);

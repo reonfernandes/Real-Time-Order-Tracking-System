@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { setAuthToken, setSessionExpiredHandler } from '../api/client';
-import { signIn, signOut, signUp } from '../api/auth.api';
-import { fetchUsers } from '../api/admin.api';
-import type { SignUpRequest } from '../types';
+import { fetchMe, signIn, signOut, signUp } from '../api/auth.api';
+import type { SignUpRequest, UserResponse } from '../types';
 import { AUTH_STORAGE_KEY, AuthContext } from './auth-context';
 import type { Session } from './auth-context';
 
@@ -15,6 +14,12 @@ const readStoredSession = (): Session | null => {
         return null;
     }
 };
+
+const toSession = (user: UserResponse): Session => ({
+    email: user.email,
+    name: user.name,
+    isAdmin: user.roles.includes('ADMIN'),
+});
 
 /*
 Only the email, name and the admin flag are kept in localStorage, never the token.
@@ -35,33 +40,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return () => setSessionExpiredHandler(null);
     }, [clearSession]);
 
-    /*
-    There is no /me endpoint yet, so the only way to find out whether this user is an
-    admin is to ask for one user and see whether the call is allowed.
-     */
-    const checkAdmin = useCallback(async (): Promise<boolean> => {
-        try {
-            await fetchUsers(0, 1);
-            return true;
-        } catch {
-            return false;
-        }
-    }, []);
-
     const saveSession = useCallback((next: Session) => {
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
         setSession(next);
     }, []);
 
+    /*
+    The stored session is only a cache, so the app can draw itself without waiting for a
+    round trip. It is also localStorage, which the user can edit, and the admin flag in
+    it decides which screens the ui offers. So on every load the backend is asked who
+    this really is and the cache is replaced with the answer. A dead cookie answers 401
+    and the interceptor clears everything.
+
+    saveSession never changes, so this runs once on mount.
+     */
+    useEffect(() => {
+        if (!readStoredSession()) return;
+
+        let active = true;
+
+        fetchMe()
+            .then((user) => {
+                if (active) saveSession(toSession(user));
+            })
+            .catch(() => {
+                // 401 is already taken care of, and a backend that is simply down is not
+                // a reason to sign the user out
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [saveSession]);
+
     const login = useCallback(
         async (email: string, password: string) => {
             const { token } = await signIn({ email, password });
             setAuthToken(token);
-
-            const isAdmin = await checkAdmin();
-            saveSession({ email, name: email.split('@')[0], isAdmin });
+            saveSession(toSession(await fetchMe()));
         },
-        [checkAdmin, saveSession],
+        [saveSession],
     );
 
     const register = useCallback(
@@ -69,11 +87,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             await signUp(payload);
             const { token } = await signIn({ email: payload.email, password: payload.password });
             setAuthToken(token);
-
-            const isAdmin = await checkAdmin();
-            saveSession({ email: payload.email, name: payload.name, isAdmin });
+            saveSession(toSession(await fetchMe()));
         },
-        [checkAdmin, saveSession],
+        [saveSession],
     );
 
     const logout = useCallback(async () => {

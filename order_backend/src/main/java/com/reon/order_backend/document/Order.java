@@ -30,6 +30,8 @@ public class Order {
     private ObjectId userId;    // which user has placed the order.
 
     // todo: later create a product document..
+    // @Builder.Default, else the builder ignores this line and items comes out null
+    @Builder.Default
     private List<String> items = new ArrayList<>();
     private Double amount;
     private Status status;
@@ -46,6 +48,7 @@ public class Order {
         RETURNED            // Customer returned the order
     }
 
+    @Builder.Default
     private Map<String, LocalDateTime> timeStamps = new HashMap<>();
 
     @CreatedDate

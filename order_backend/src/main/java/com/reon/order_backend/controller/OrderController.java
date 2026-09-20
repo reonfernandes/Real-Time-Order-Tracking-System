@@ -146,11 +146,16 @@ public class OrderController {
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    /*
+    Admin only. Anyone signed in could move their own order before, so a customer was able
+    to mark it DELIVERED themselves. Cancelling is the step a customer does own, and that
+    one is still open to them above.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping(path = "/update/{orderId}")
     @Operation(
             summary = "Update order status",
-            description = "Updates an order's status using given orderId."
+            description = "Moves an order to its next status. Only an ADMIN can do this, a customer can only cancel."
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Order status updated successfully",

@@ -120,7 +120,12 @@ Base path is `/api/v1`. Swagger UI is at `http://localhost:8080/swagger-ui.html`
 |---|---|---|
 | POST | `/auth/sign-up` | register a new user |
 | POST | `/auth/sign-in` | login, returns the jwt |
-| POST | `/auth/sign-out` | clears the jwt cookie |
+| POST | `/auth/sign-out` | clears the cookie and revokes the token |
+| GET | `/auth/me` | profile of the signed in user, **needs login** |
+
+Signing out revokes the token, it does not only drop the cookie. The id of the token
+goes into `revoked_tokens` and the auth filter refuses it from then on. Mongo removes
+the row by itself once the token would have expired anyway.
 
 ### Order — needs login
 
@@ -129,11 +134,15 @@ Base path is `/api/v1`. Swagger UI is at `http://localhost:8080/swagger-ui.html`
 | POST | `/order/generateOrder` | place a new order |
 | GET | `/order/orders?page=0&size=10` | your orders, paginated |
 | GET | `/order/fetch/{orderId}` | one order |
-| PUT | `/order/update/{orderId}` | move the order to the next status |
+| PUT | `/order/update/{orderId}` | move the order to the next status, **ADMIN only** |
 | DELETE | `/order/cancel/{orderId}` | cancel the order |
 | GET | `/order/stream/{orderId}` | live status of one order, server sent events |
 
 Page starts from **0** and size can be between 1 and 100.
+
+Moving an order forward is an admin job. A customer can place an order, watch it and
+cancel it, but cannot mark it delivered. An admin can read and move any order, everybody
+else only their own.
 
 ### Admin — needs ADMIN role
 

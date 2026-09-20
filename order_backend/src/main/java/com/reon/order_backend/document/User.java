@@ -32,8 +32,17 @@ public class User implements UserDetails {
     private String email;
 
     private String password;
+
+    /*
+    @Builder.Default is not optional here. Without it lombok leaves these initializers
+    out of the builder, so User.builder()...build() came back with roles = null and the
+    first getAuthorities() call on that user blew up. Registration happened to set both
+    right after building, which is the only reason this never showed up.
+     */
+    @Builder.Default
     private boolean accountEnabled = false;
 
+    @Builder.Default
     private Set<Role> roles = EnumSet.of(Role.USER);
 
     @CreatedDate

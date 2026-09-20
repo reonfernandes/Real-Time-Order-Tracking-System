@@ -48,6 +48,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(
                         auth ->
                                 auth
+                                        // /me lives under /auth but has to be signed in, so it goes first
+                                        .requestMatchers("/api/v1/auth/me").authenticated()
                                         .requestMatchers("/api/v1/auth/**").permitAll()
                                         .requestMatchers("/api/v1/order/**").authenticated()
                                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

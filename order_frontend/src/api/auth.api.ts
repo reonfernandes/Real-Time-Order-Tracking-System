@@ -11,6 +11,12 @@ export const signIn = async (payload: SignInRequest): Promise<JwtResponse> => {
     return data;
 };
 
+// who the backend thinks we are, including the roles the ui draws itself from
+export const fetchMe = async (): Promise<UserResponse> => {
+    const { data } = await api.get<UserResponse>('/api/v1/auth/me');
+    return data;
+};
+
 export const signOut = async (): Promise<void> => {
     await api.post('/api/v1/auth/sign-out');
 };

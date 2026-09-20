@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,6 +32,18 @@ public class GlobalExceptionHandler {
         exception.getConstraintViolations().forEach(violation ->
                 errors.put(violation.getPropertyPath().toString(), violation.getMessage()));
         return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
+    }
+
+    /*
+    A path variable that cannot be turned into an ObjectId, for example /fetch/abc.
+    Spring was already answering 400 for this but with an empty body, so the frontend
+    only ever showed its generic fallback line. Now it says which value was wrong.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, String>> handleTypeMismatch(MethodArgumentTypeMismatchException exception) {
+        log.info("type mismatch :: {} = {}", exception.getName(), exception.getValue());
+        return buildError(exception.getName(), "'" + exception.getValue() + "' is not a valid " + exception.getName(),
+                HttpStatus.BAD_REQUEST);
     }
 
     // email is already taken, so it is a conflict and not a bad request

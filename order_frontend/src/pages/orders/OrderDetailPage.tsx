@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { errorMessage } from '../../api/client';
 import { cancelOrder, fetchOrderById, updateOrderStatus } from '../../api/orders.api';
+import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../context/useToast';
 import { useOrderStream } from '../../hooks/useOrderStream';
 import { Button } from '../../components/ui/Button';
@@ -23,6 +24,7 @@ export const OrderDetailPage = () => {
     const { orderId = '' } = useParams();
     const navigate = useNavigate();
     const { notify } = useToast();
+    const { session } = useAuth();
 
     const [order, setOrder] = useState<OrderResponse | null>(null);
     const [loading, setLoading] = useState(true);
@@ -196,15 +198,24 @@ export const OrderDetailPage = () => {
 
                     <Card title="Actions">
                         <div className="order-detail__actions">
-                            {next ? (
+                            {/* moving an order along is an admin job now, a customer can only cancel */}
+                            {next && session?.isAdmin ? (
                                 <Button block loading={working} onClick={handleAdvance}>
                                     Move to {STATUS_META[next].label.toLowerCase()}
                                 </Button>
-                            ) : (
+                            ) : null}
+
+                            {next && !session?.isAdmin ? (
+                                <p className="order-detail__closed">
+                                    {STATUS_META[order.status].note}. The next step shows up here on its own.
+                                </p>
+                            ) : null}
+
+                            {!next ? (
                                 <p className="order-detail__closed">
                                     {STATUS_META[order.status].note}. Nothing more to do here.
                                 </p>
-                            )}
+                            ) : null}
 
                             {isCancellable(order.status) ? (
                                 <Button variant="danger" block onClick={() => setConfirmOpen(true)} disabled={working}>

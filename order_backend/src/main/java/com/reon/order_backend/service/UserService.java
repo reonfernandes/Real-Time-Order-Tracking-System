@@ -8,4 +8,5 @@ import com.reon.order_backend.jwt.JwtResponse;
 public interface UserService {
     UserResponse registration(UserRequest request);
     JwtResponse authenticateUser(UserLogin login);
+    UserResponse fetchCurrentUser(String email);
 }

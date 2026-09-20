@@ -131,16 +131,22 @@ public class OrderServiceImpl implements OrderService {
         log.info("Order Service :: Cancellation completed for orderId: {}", orderId);
     }
 
+    /*
+    Moving an order forward is an admin job, the controller only lets ADMIN in here.
+    It used to be open to any signed in user as long as the order was theirs, which meant
+    a customer could walk their own order all the way to DELIVERED, fire the events and
+    trigger the mails. Cancelling is the one step that genuinely belongs to the customer,
+    and that is still handled by cancelOrder.
+
+    Because the admin is usually not the one who placed the order, there is no ownership
+    check here. The actor is only used for the log line.
+     */
     @Override
-    public OrderResponse updateOrder(ObjectId orderId, OrderUpdateStatus orderUpdateStatus, User user) {
+    public OrderResponse updateOrder(ObjectId orderId, OrderUpdateStatus orderUpdateStatus, User actor) {
         log.info("Order Service :: Updating order with id: {}", orderId);
         Order order = orderRepository.findById(orderId).orElseThrow(
                 () -> new OrderNotFoundException("Order not found with id: " + orderId)
         );
-
-        if (!order.getUserId().equals(user.getId())) {
-            throw new OrderNotFoundException("Order not found with id: " + orderId);
-        }
 
         Order.Status newStatus = getStatus(orderUpdateStatus, order);
 
@@ -149,8 +155,17 @@ public class OrderServiceImpl implements OrderService {
 
         Order updatedOrder = orderRepository.save(order);
 
-        publishEvent("order_update_event", buildEvent(updatedOrder, user));
-        log.info("Order Service :: Order update event sent for status: {}", newStatus);
+        /*
+        The mail has to reach whoever placed the order, not the admin who moved it.
+        Earlier this passed the acting user straight through, which was fine only as long
+        as the two were always the same person.
+         */
+        User owner = userRepository.findById(order.getUserId()).orElseThrow(
+                () -> new UserNotFoundException("The user who placed this order no longer exists.")
+        );
+
+        publishEvent("order_update_event", buildEvent(updatedOrder, owner));
+        log.info("Order Service :: Order {} moved to {} by {}", orderId, newStatus, actor.getEmail());
 
         return OrderMapper.orderResponseToUser(updatedOrder);
     }
@@ -206,6 +221,13 @@ public class OrderServiceImpl implements OrderService {
         return newStatus;
     }
 
+    /*
+    An admin can open any order, everybody else only their own. The admin has to be able
+    to read an order to be allowed to move its status, and this also backs the sse stream,
+    so without it the tracking screen would be closed to the very person who updates it.
+    A stranger still gets the same not found message as a missing order, so nobody can use
+    this to find out which order ids exist.
+     */
     @Override
     public OrderResponse fetchOrderViaId(ObjectId id, User user) {
         log.info("Order Service :: Fetching order with id: {}", id);
@@ -213,11 +235,15 @@ public class OrderServiceImpl implements OrderService {
                 () -> new OrderNotFoundException("Order not found with id: " + id)
         );
 
-        if (!order.getUserId().equals(user.getId())) {
+        if (!order.getUserId().equals(user.getId()) && !isAdmin(user)) {
             throw new OrderNotFoundException("Order not found with id: " + id);
         }
 
         return OrderMapper.orderResponseToUser(order);
+    }
+
+    private boolean isAdmin(User user) {
+        return user.getRoles() != null && user.getRoles().contains(User.Role.ADMIN);
     }
 
     private Set<Order.Status> nextAllowedStatus(Order.Status status) {
