@@ -10,6 +10,8 @@ import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.retrytopic.DltStrategy;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.stereotype.Component;
 
@@ -99,14 +101,20 @@ public class OrderStatusConsumer {
         log.info("Order Consumer :: Order status is updated to: {}", newOrderStatus);
     }
 
+    /*
+    This handler is shared by both the listeners, so the topic cannot be hardcoded.
+    Kafka gives us the original topic and the failure reason in the headers, so we read them from there.
+     */
     @DltHandler
-    public void handleOrderPlacedDLT(OrderEventDTO dltEvent) {
-        log.error("Order event failed after retries: {}", dltEvent);
+    public void handleFailedEvent(OrderEventDTO dltEvent,
+                                  @Header(name = KafkaHeaders.ORIGINAL_TOPIC, required = false) String originalTopic,
+                                  @Header(name = KafkaHeaders.EXCEPTION_MESSAGE, required = false) String errorMessage) {
+        log.error("Order event failed after retries on topic {} : {}", originalTopic, dltEvent);
 
         FailedEvent failedEvent = FailedEvent.builder()
-                .topic("order_event")
+                .topic(originalTopic)
                 .payload(dltEvent)
-                .errorMessage("")
+                .errorMessage(errorMessage)
                 .failedAt(LocalDateTime.now())
                 .build();
         failedEventRepository.save(failedEvent);
