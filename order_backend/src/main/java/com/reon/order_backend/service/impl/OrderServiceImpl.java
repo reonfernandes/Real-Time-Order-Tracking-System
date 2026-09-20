@@ -71,12 +71,7 @@ public class OrderServiceImpl implements OrderService {
                 .status(saveOrder.getStatus())
                 .build();
 
-        CompletableFuture<SendResult<String, Object>> orderEvent = kafkaTemplate.send("order_event", eventDTO);
-        orderEvent.exceptionally(e -> {
-            log.error("Kafka send failed for order event: {}", e.getMessage());
-            return null;
-        });
-        log.info("Order Service :: Order event sent.. {}", orderEvent.join());
+        publishEvent("order_event", eventDTO);
 
         return OrderMapper.orderResponseToUser(saveOrder);
     }
@@ -160,14 +155,26 @@ public class OrderServiceImpl implements OrderService {
                 .status(updatedOrder.getStatus())
                 .build();
 
-        CompletableFuture<SendResult<String, Object>> orderEvent = kafkaTemplate.send("order_update_event", updatedEvent);
-        orderEvent.exceptionally(e -> {
-            log.error("Kafka send failed for order update: {}", e.getMessage());
-            return null;
-        });
+        publishEvent("order_update_event", updatedEvent);
         log.info("Order Service :: Order update event sent for status: {}", newStatus);
 
         return OrderMapper.orderResponseToUser(updatedOrder);
+    }
+
+    /*
+    Sends the event to kafka without blocking the request thread.
+    Earlier we were calling join() here, which made the whole api wait for kafka
+    and also failed the request when the broker was down, even though the order was already saved.
+     */
+    private void publishEvent(String topic, OrderEventDTO event) {
+        CompletableFuture<SendResult<String, Object>> future = kafkaTemplate.send(topic, event);
+        future.whenComplete((result, exception) -> {
+            if (exception != null) {
+                log.error("Order Service :: Kafka send failed for topic {} : {}", topic, exception.getMessage());
+            } else {
+                log.info("Order Service :: Event sent to topic: {}", topic);
+            }
+        });
     }
 
     private Order.Status getStatus(OrderUpdateStatus orderUpdateStatus, Order order) {
