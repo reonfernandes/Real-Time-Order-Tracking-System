@@ -44,6 +44,11 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public OrderResponse createOrder(OrderCreation orderCreation, ObjectId id) {
         log.info("Order Service :: Order creation in progress..");
+        // fetch the user first, otherwise a wrong user id leaves an order lying in db with no owner
+        User user = userRepository.findById(id).orElseThrow(
+                () -> new UserNotFoundException("User with provided detail not found.")
+        );
+
         Order order = OrderMapper.mapOrderToEntity(orderCreation);
         order.setUserId(id);
         order.setStatus(Order.Status.PENDING);
@@ -52,9 +57,6 @@ public class OrderServiceImpl implements OrderService {
 
         Order saveOrder = orderRepository.save(order);
 
-        User user = userRepository.findById(id).orElseThrow(
-                () -> new UserNotFoundException("User with provided detail not found.")
-        );
         user.getOrderList().add(saveOrder);
         userRepository.save(user);
 
