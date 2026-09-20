@@ -2,6 +2,7 @@ package com.reon.order_backend.config;
 
 import com.reon.order_backend.jwt.JwtAuthEntryPoint;
 import com.reon.order_backend.jwt.JwtAuthenticationFilter;
+import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -52,6 +53,7 @@ public class SecurityConfig {
                                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
                                         "/swagger-resources/**", "/webjars/**").permitAll()
+                                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                                 .anyRequest().authenticated())
                 .logout(AbstractHttpConfigurer::disable)
                 .exceptionHandling(handler -> handler.authenticationEntryPoint(jwtAuthEntryPoint))
